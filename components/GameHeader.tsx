@@ -56,7 +56,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
           <p
             className={`text-[10px] mt-0.5 font-semibold ${isDarkMode ? "text-amber-400/80" : "text-orange-700/80"}`}
           >
-            🔥 {dayStreak}-day streak · Today's best: {dailyBest}
+            🔥 {dayStreak}-day streak · Today&apos;s best: {dailyBest}
           </p>
         </div>
       </div>
