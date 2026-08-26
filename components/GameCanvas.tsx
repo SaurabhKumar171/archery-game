@@ -52,20 +52,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // --- Responsive Fullscreen / Bounded Resize Handler ---
+    // --- Responsive Fullscreen Handler ---
     const handleResize = () => {
       const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.parentElement?.getBoundingClientRect() || {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      };
-      const w = rect.width;
-      const h = rect.height;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
 
       canvas.width = w * dpr;
       canvas.height = h * dpr;
 
-      // Scale to fit the wider 1000x600 arena perfectly inside container bounds
+      // Scale to fit the wider 1000x600 arena perfectly
       const scale = Math.min(w / 1000, h / 600);
       const offsetX = (w - 1000 * scale) / 2;
       const offsetY = (h - 600 * scale) / 2;
@@ -82,7 +78,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const Px = 100,
       Py = 470,
       Tx = 900,
-      BASE_TY = 300;
+      BASE_TY = 300; // Px moved left, Tx moved right!
     const targetRadius = 60,
       BASE_BULLSEYE_RADIUS = 12;
     const gravity = 1200,
@@ -217,13 +213,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const getMousePos = (e: MouseEvent | TouchEvent) => {
       let clientX = e instanceof TouchEvent ? e.touches[0].clientX : e.clientX;
       let clientY = e instanceof TouchEvent ? e.touches[0].clientY : e.clientY;
-      const rect = canvas.getBoundingClientRect();
-
       const { offsetX, offsetY, scale } = layout.current;
 
       return {
-        x: (clientX - rect.left - offsetX) / scale,
-        y: (clientY - rect.top - offsetY) / scale,
+        x: (clientX - offsetX) / scale,
+        y: (clientY - offsetY) / scale,
       };
     };
 
@@ -231,6 +225,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (isArrowFlying) return;
       const { x, y } = getMousePos(e);
 
+      // Allow dragging from anywhere on the screen
       isDragging = true;
       dragStartX = x;
       dragStartY = y;
@@ -256,6 +251,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (!isDragging) return;
       isDragging = false;
 
+      // Calculate pull using relative displacement (Angry Birds style)
       const pullDx = currentX - dragStartX,
         pullDy = currentY - dragStartY;
       const dragDist = Math.hypot(pullDx, pullDy);
@@ -331,11 +327,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         dragDist = 0;
 
       if (isDragging) {
+        // Calculate physics dynamically relative to initial touch point
         const pullDx = currentX - dragStartX;
         const pullDy = currentY - dragStartY;
         dragDist = Math.hypot(pullDx, pullDy);
 
         if (dragDist > 5) {
+          // Prevent angle snapping on initial subtle touch
           displayAngle = Math.atan2(-pullDy, -pullDx);
           lastAimAngle = displayAngle;
         } else {
@@ -382,7 +380,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       backElbowX += (targetBackElbowX - backElbowX) * dt * 15;
       backElbowY += (targetBackElbowY - backElbowY) * dt * 15;
 
-      // 2. RENDERING
+      // 2. RENDERING (Responsive Layering)
       const { offsetX, offsetY, scale, dpr, w, h } = layout.current;
 
       ctx.resetTransform();
@@ -871,18 +869,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [t]);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden">
-      <div className="relative w-full max-w-[1000px] aspect-[1000/600] max-h-[85vh] flex items-center justify-center">
-        <canvas
-          ref={canvasRef}
-          className="block w-full h-full touch-none cursor-crosshair"
-          style={{ touchAction: "none" }}
-        />
-        <div className="pointer-events-none absolute bottom-4 w-full flex justify-center">
-          <span className="rounded-full bg-black/60 px-4 py-1.5 text-[10px] sm:text-xs font-bold tracking-widest uppercase text-white/90 backdrop-blur-md shadow-2xl">
-            Pull back to draw
-          </span>
-        </div>
+    <div className="absolute inset-0 w-full h-full bg-black">
+      <canvas
+        ref={canvasRef}
+        className="block w-full h-full touch-none cursor-crosshair"
+        style={{ touchAction: "none" }}
+      />
+      <div className="pointer-events-none absolute bottom-12 w-full flex justify-center">
+        <span className="rounded-full bg-black/60 px-6 py-2.5 text-xs sm:text-sm font-bold tracking-widest uppercase text-white/90 backdrop-blur-md shadow-2xl">
+          Pull back to draw
+        </span>
       </div>
     </div>
   );
