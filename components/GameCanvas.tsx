@@ -225,23 +225,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (isArrowFlying) return;
       const { x, y } = getMousePos(e);
 
-      const distToPlayer = Math.hypot(x - currentHandX, y - currentHandY);
-      const distToCenter = Math.hypot(x - WIDTH / 2, y - HEIGHT / 2);
-
-      // Allow dragging from either near the player OR the center of the screen
-      if (distToPlayer < 150 || distToCenter < 300) {
-        isDragging = true;
-        dragStartX = x;
-        dragStartY = y;
-        currentX = x;
-        currentY = y;
-        arrowTrail = [];
-        minDistToBullseye = Infinity;
-        currentWind =
-          (Math.random() - 0.5) * 2 * getWindStrength(getDifficultyLevel());
-        cb.current.sfx.draw();
-        cb.current.onStatusChange("Aiming... focus your mind.");
-      }
+      // Allow dragging from anywhere on the screen
+      isDragging = true;
+      dragStartX = x;
+      dragStartY = y;
+      currentX = x;
+      currentY = y;
+      arrowTrail = [];
+      minDistToBullseye = Infinity;
+      currentWind =
+        (Math.random() - 0.5) * 2 * getWindStrength(getDifficultyLevel());
+      cb.current.sfx.draw();
+      cb.current.onStatusChange("Aiming... focus your mind.");
     };
 
     const moveDrag = (e: MouseEvent | TouchEvent) => {
