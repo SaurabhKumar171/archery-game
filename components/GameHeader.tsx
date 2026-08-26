@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import { usePWAInstall } from "../hooks/usePWAInstall";
 
 interface GameHeaderProps {
   isDarkMode: boolean;
@@ -29,6 +32,9 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
   onToggleMute,
   onToggleTheme,
 }) => {
+  // Bring in our smart install hook
+  const { isInstallable, isStandalone, handleInstallClick } = usePWAInstall();
+
   const headerClass = isDarkMode
     ? "bg-gradient-to-r from-[#26133B] to-[#1C0E2B] border-purple-800/30"
     : "bg-gradient-to-r from-orange-100 to-amber-100 border-amber-800/20";
@@ -69,6 +75,17 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
         {/* Quick Action Buttons */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Smart Install Button */}
+          {isInstallable && !isStandalone && (
+            <button
+              onClick={handleInstallClick}
+              className="px-2.5 py-1.5 rounded-full text-[9px] sm:text-xs font-bold uppercase bg-amber-500 hover:bg-amber-400 text-black active:scale-95 transition-all shadow-lg shadow-amber-500/20 animate-pulse"
+              title="Install Game to Home Screen"
+            >
+              📱 Install
+            </button>
+          )}
+
           <button
             onClick={onNewRun}
             className="px-2.5 py-1.5 rounded-full text-[9px] sm:text-xs font-bold uppercase bg-black/10 hover:bg-black/20 active:scale-95 transition-all text-current"
