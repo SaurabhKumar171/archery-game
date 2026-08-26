@@ -1,5 +1,21 @@
 import React, { useEffect, useRef } from "react";
 import { useGameAudio } from "../hooks/useGameAudio";
+import {
+  GAME_CONFIG,
+  computeLayout,
+  getDifficultyLevel,
+  getWindStrength,
+  getBullseyeRadius,
+  getTargetRadius,
+  getTargetY,
+  getTargetXOffset,
+} from "../utils/gamePhysics";
+import {
+  drawBackground,
+  drawTarget,
+  drawArrow,
+  drawArcher,
+} from "./renderHelpers";
 
 interface GameCanvasProps {
   theme: any;
@@ -30,8 +46,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const scoreRef = useRef(initialScore);
   const attemptsRef = useRef(initialAttempts);
   const streakRef = useRef(initialStreak);
+  const consecutiveMissesRef = useRef(0);
 
-  // Layout engine now uses a wider 1000x600 logical canvas
   const layout = useRef({
     offsetX: 0,
     offsetY: 0,
@@ -52,37 +68,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // --- Responsive Fullscreen Handler ---
     const handleResize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-
-      // Scale to fit the wider 1000x600 arena perfectly
-      const scale = Math.min(w / 1000, h / 600);
-      const offsetX = (w - 1000 * scale) / 2;
-      const offsetY = (h - 600 * scale) / 2;
-
-      layout.current = { offsetX, offsetY, scale, dpr, w, h };
+      const { innerWidth: w, innerHeight: h } = window;
+      const l = computeLayout(w, h);
+      canvas.width = w * l.dpr;
+      canvas.height = h * l.dpr;
+      layout.current = l;
     };
 
     window.addEventListener("resize", handleResize);
     handleResize();
 
-    // Logical Game Coordinates (Wider battlefield)
-    const WIDTH = 1000,
-      HEIGHT = 600;
-    const Px = 100,
-      Py = 470,
-      Tx = 900,
-      BASE_TY = 300; // Px moved left, Tx moved right!
-    const targetRadius = 60,
-      BASE_BULLSEYE_RADIUS = 12;
-    const gravity = 1200,
-      powerMultiplier = 7;
+    const { Px, Py, Tx, GRAVITY, POWER_MULTIPLIER } = GAME_CONFIG;
 
     let currentHandX = Px,
       currentHandY = Py;
@@ -125,24 +122,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       currentWind = 0;
     let minDistToBullseye = Infinity;
 
-    const getDifficultyLevel = () => scoreRef.current / 100;
-    const getTargetAmplitude = (level: number) =>
-      Math.min(150, 20 + 22 * Math.log(1 + level));
-    const getTargetSpeed = (level: number) => 0.35 + 0.06 * Math.sqrt(level);
-    const getWindStrength = (level: number) => 4.5 * Math.sqrt(level);
-    const getBullseyeRadius = (level: number) =>
-      Math.max(6, BASE_BULLSEYE_RADIUS - level * 0.15);
-    const getTargetY = () =>
-      BASE_TY +
-      Math.sin(timeElapsed * getTargetSpeed(getDifficultyLevel())) *
-        getTargetAmplitude(getDifficultyLevel());
-
     const backgroundLayers = [
       {
         x: -600,
-        y: 220,
+        y: 180,
         width: 500,
-        height: 380,
+        height: 330,
         speed: 1.8,
         color1: t.mountains[1].c1,
         color2: t.mountains[1].c2,
@@ -150,9 +135,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       {
         x: 0,
-        y: 200,
+        y: 160,
         width: 300,
-        height: 400,
+        height: 350,
         speed: 1.5,
         color1: t.mountains[0].c1,
         color2: t.mountains[0].c2,
@@ -160,9 +145,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       {
         x: 350,
-        y: 250,
+        y: 200,
         width: 400,
-        height: 350,
+        height: 310,
         speed: 2.5,
         color1: t.mountains[1].c1,
         color2: t.mountains[1].c2,
@@ -170,7 +155,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       {
         x: 750,
-        y: 320,
+        y: 280,
         width: 50,
         height: 180,
         speed: 4,
@@ -180,9 +165,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       {
         x: 900,
-        y: 260,
+        y: 220,
         width: 450,
-        height: 340,
+        height: 290,
         speed: 2.2,
         color1: t.mountains[0].c1,
         color2: t.mountains[0].c2,
@@ -190,9 +175,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       {
         x: -50,
-        y: 300,
+        y: 250,
         width: 350,
-        height: 300,
+        height: 260,
         speed: 4,
         color1: t.mountains[2].c1,
         color2: t.mountains[2].c2,
@@ -200,7 +185,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       },
       {
         x: 150,
-        y: 340,
+        y: 300,
         width: 40,
         height: 160,
         speed: 5,
@@ -211,8 +196,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     ];
 
     const getMousePos = (e: MouseEvent | TouchEvent) => {
-      let clientX = e instanceof TouchEvent ? e.touches[0].clientX : e.clientX;
-      let clientY = e instanceof TouchEvent ? e.touches[0].clientY : e.clientY;
+      const clientX =
+        e instanceof TouchEvent ? e.touches[0].clientX : e.clientX;
+      const clientY =
+        e instanceof TouchEvent ? e.touches[0].clientY : e.clientY;
       const { offsetX, offsetY, scale } = layout.current;
 
       return {
@@ -225,7 +212,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (isArrowFlying) return;
       const { x, y } = getMousePos(e);
 
-      // Allow dragging from anywhere on the screen
       isDragging = true;
       dragStartX = x;
       dragStartY = y;
@@ -233,10 +219,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       currentY = y;
       arrowTrail = [];
       minDistToBullseye = Infinity;
-      currentWind =
-        (Math.random() - 0.5) * 2 * getWindStrength(getDifficultyLevel());
+
+      const windMax = getWindStrength(
+        getDifficultyLevel(scoreRef.current),
+        scoreRef.current,
+        streakRef.current,
+      );
+      currentWind = windMax > 0 ? (Math.random() - 0.5) * 2 * windMax : 0;
+
       cb.current.sfx.draw();
-      cb.current.onStatusChange("Aiming... focus your mind.");
+      cb.current.onStatusChange(
+        streakRef.current >= 3
+          ? "🔥 HOT STREAK! Double Points Active!"
+          : "Aiming... focus your mind.",
+      );
     };
 
     const moveDrag = (e: MouseEvent | TouchEvent) => {
@@ -251,9 +247,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (!isDragging) return;
       isDragging = false;
 
-      // Calculate pull using relative displacement (Angry Birds style)
-      const pullDx = currentX - dragStartX,
-        pullDy = currentY - dragStartY;
+      const pullDx = currentX - dragStartX;
+      const pullDy = currentY - dragStartY;
       const dragDist = Math.hypot(pullDx, pullDy);
 
       if (dragDist < 20) {
@@ -262,7 +257,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
 
       arrowAngle = Math.atan2(-pullDy, -pullDx);
-      const V0 = Math.min(dragDist, 250) * powerMultiplier;
+      const V0 = Math.min(dragDist, 250) * POWER_MULTIPLIER;
       velocityX = V0 * Math.cos(arrowAngle);
       velocityY = V0 * Math.sin(arrowAngle);
 
@@ -319,7 +314,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (dt > 0.1) dt = 0.016;
       timeElapsed += dt;
 
-      // 1. KINEMATICS
       let targetBowRaise = 0,
         targetBowAngle = Math.PI / 3.5,
         pullDist = 0,
@@ -327,13 +321,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         dragDist = 0;
 
       if (isDragging) {
-        // Calculate physics dynamically relative to initial touch point
         const pullDx = currentX - dragStartX;
         const pullDy = currentY - dragStartY;
         dragDist = Math.hypot(pullDx, pullDy);
 
         if (dragDist > 5) {
-          // Prevent angle snapping on initial subtle touch
           displayAngle = Math.atan2(-pullDy, -pullDx);
           lastAimAngle = displayAngle;
         } else {
@@ -380,22 +372,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       backElbowX += (targetBackElbowX - backElbowX) * dt * 15;
       backElbowY += (targetBackElbowY - backElbowY) * dt * 15;
 
-      // 2. RENDERING (Responsive Layering)
-      const { offsetX, offsetY, scale, dpr, w, h } = layout.current;
+      const { offsetX, offsetY, scale, dpr } = layout.current;
 
       ctx.resetTransform();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(dpr, dpr);
 
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-      bgGrad.addColorStop(0, t.sky[0]);
-      bgGrad.addColorStop(0.5, t.sky[1]);
-      bgGrad.addColorStop(1, t.sky[2]);
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, w, h);
-
+      // 1. Transform World to Logical Space
+      ctx.save();
       ctx.translate(offsetX, offsetY);
       ctx.scale(scale, scale);
+
+      // 2. Draw Transformed Background & Scene
+      drawBackground(
+        ctx,
+        t,
+        backgroundLayers,
+        isArrowFlying,
+        velocityX,
+        dt,
+        timeElapsed,
+      );
 
       if (screenShakeMag > 0)
         screenShakeMag = Math.max(0, screenShakeMag - dt * 26);
@@ -405,278 +402,87 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         (Math.random() - 0.5) * screenShakeMag * 0.6,
       );
 
-      ctx.save();
-      ctx.shadowColor = t.sunGlow;
-      ctx.shadowBlur = 120;
-      ctx.fillStyle = t.sun;
-      ctx.beginPath();
-      ctx.arc(WIDTH / 2 + 150, 200, 60, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      backgroundLayers.forEach((layer) => {
-        layer.x -= isArrowFlying ? velocityX * dt * 0.015 * layer.speed : 0;
-        const mGrad = ctx.createLinearGradient(
-          0,
-          layer.y,
-          0,
-          layer.y + layer.height,
-        );
-        mGrad.addColorStop(0, layer.color1);
-        mGrad.addColorStop(1, layer.color2);
-        ctx.fillStyle = mGrad;
-
-        if (layer.type === "mountain") {
-          ctx.beginPath();
-          ctx.moveTo(layer.x - 500, layer.y + layer.height + 1000);
-          ctx.lineTo(layer.x, layer.y + layer.height);
-          ctx.lineTo(layer.x + layer.width / 2, layer.y);
-          ctx.lineTo(layer.x + layer.width, layer.y + layer.height);
-          ctx.lineTo(
-            layer.x + layer.width + 500,
-            layer.y + layer.height + 1000,
-          );
-          ctx.fill();
-        } else if (layer.type === "flag") {
-          ctx.fillStyle = t.flagPole;
-          ctx.fillRect(layer.x, layer.y, 5, layer.height);
-          ctx.fillStyle = layer.color1;
-          ctx.beginPath();
-          ctx.moveTo(layer.x + 5, layer.y + 10);
-          ctx.quadraticCurveTo(
-            layer.x + 55 + Math.sin(timeElapsed * 3) * 10,
-            layer.y + 20,
-            layer.x + 75,
-            layer.y + 15,
-          );
-          ctx.lineTo(layer.x + 5, layer.y + 35);
-          ctx.fill();
-        }
-      });
-
-      const groundGrad = ctx.createLinearGradient(
-        0,
-        HEIGHT - 100,
-        0,
-        HEIGHT + 200,
-      );
-      groundGrad.addColorStop(0, t.ground[0]);
-      groundGrad.addColorStop(1, t.ground[1]);
-      ctx.fillStyle = groundGrad;
-      ctx.fillRect(-2000, HEIGHT - 100, 4800, 3000);
-
       if (targetShake > 0) targetShake = Math.max(0, targetShake - dt * 4);
       const shakeX = (Math.random() - 0.5) * targetShake * 15;
-      const Ty = getTargetY();
-      const bullseyeRadius = getBullseyeRadius(getDifficultyLevel());
+
+      const dynamicLevel = getDifficultyLevel(scoreRef.current);
+      const currentTx =
+        Tx + getTargetXOffset(scoreRef.current, streakRef.current, timeElapsed);
+      const Ty = getTargetY(scoreRef.current, streakRef.current, timeElapsed);
+      const targetRadius = getTargetRadius(dynamicLevel);
+      const bullseyeRadius = getBullseyeRadius(dynamicLevel);
 
       ctx.save();
       ctx.translate(shakeX, 0);
-      ctx.fillStyle = t.targetStand[0];
-      ctx.fillRect(Tx - 15, Ty, 20, HEIGHT - Ty);
-      ctx.fillStyle = t.targetStand[1];
-      ctx.fillRect(Tx - 20, Ty, 15, HEIGHT - Ty);
-      const drawRing = (r: number, c1: string, c2: string) => {
-        const grad = ctx.createRadialGradient(
-          Tx - r / 3,
-          Ty - r / 3,
-          r / 4,
-          Tx,
-          Ty,
-          r,
-        );
-        grad.addColorStop(0, c1);
-        grad.addColorStop(1, c2);
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(Tx, Ty, r, 0, Math.PI * 2);
-        ctx.fill();
-      };
-      drawRing(targetRadius, t.targetRings.outer, t.targetStand[1]);
-      drawRing(45, t.targetRings.mid, t.targetRings.mid);
-      drawRing(30, t.targetRings.inner, t.targetStand[1]);
-      drawRing(bullseyeRadius, t.targetRings.bullseye, t.sunGlow);
+      drawTarget(ctx, t, currentTx, Ty, Py + 35, targetRadius, bullseyeRadius);
       ctx.restore();
 
+      // Aim Line & Pity Trajectory Arc
       if (isDragging) {
-        ctx.beginPath();
-        ctx.moveTo(handX, handY);
-        ctx.lineTo(
-          handX + Math.cos(displayAngle) * 1000,
-          handY + Math.sin(displayAngle) * 1000,
-        );
-        ctx.strokeStyle = t.aimLine;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([8, 12]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        if (Math.abs(currentWind) > 2) {
+        if (consecutiveMissesRef.current < 3) {
+          ctx.beginPath();
+          ctx.moveTo(handX, handY);
+          ctx.lineTo(
+            handX + Math.cos(displayAngle) * 1000,
+            handY + Math.sin(displayAngle) * 1000,
+          );
+          ctx.strokeStyle = t.aimLine;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([8, 12]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        } else {
+          ctx.beginPath();
+          let simX = handX,
+            simY = handY;
+          let simVx =
+            Math.min(dragDist, 250) * POWER_MULTIPLIER * Math.cos(displayAngle);
+          let simVy =
+            Math.min(dragDist, 250) * POWER_MULTIPLIER * Math.sin(displayAngle);
+
+          for (let step = 0; step < 25; step++) {
+            simX += simVx * 0.02;
+            simY += simVy * 0.02;
+            simVy += GRAVITY * 0.02;
+            if (step === 0) ctx.moveTo(simX, simY);
+            else ctx.lineTo(simX, simY);
+          }
+          ctx.strokeStyle = "#F59E0B";
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([4, 6]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        if (Math.abs(currentWind) > 1.5) {
           ctx.save();
           ctx.font = "bold 13px sans-serif";
           ctx.fillStyle = t.windIndicator;
           ctx.textAlign = "center";
           ctx.fillText(
             `WIND ${currentWind > 0 ? "→ → →" : "← ← ←"}`,
-            WIDTH / 2,
+            GAME_CONFIG.WIDTH / 2,
             40,
           );
           ctx.restore();
         }
       }
 
-      ctx.save();
-      const skinColor = "#937F77",
-        silverArmor = "#E2E8F0",
-        dhotiColor = t.sun === "#FFFFFF" ? "#F3F4F6" : "#9CA3AF",
-        clothColor = "#DC2626";
-
-      ctx.fillStyle = "#451A03";
-      ctx.beginPath();
-      ctx.moveTo(Px - 15, Py - 60);
-      ctx.lineTo(Px - 35, Py - 10);
-      ctx.lineTo(Px - 20, Py - 5);
-      ctx.lineTo(Px - 5, Py - 55);
-      ctx.fill();
-      ctx.strokeStyle = silverArmor;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.strokeStyle = "#F3F4F6";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(Px - 15, Py - 60);
-      ctx.lineTo(Px - 25, Py - 80);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(Px - 10, Py - 58);
-      ctx.lineTo(Px - 15, Py - 82);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(Px - 5, Py - 55);
-      ctx.lineTo(Px - 5, Py - 78);
-      ctx.stroke();
-      ctx.strokeStyle = skinColor;
-      ctx.lineWidth = 8;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(Px, Py - 45);
-      ctx.lineTo(backElbowX, backElbowY);
-      ctx.lineTo(backHandX, backHandY);
-      ctx.stroke();
-      let bdx = backHandX - backElbowX,
-        bdy = backHandY - backElbowY,
-        blen = Math.hypot(bdx, bdy);
-      if (blen > 0) {
-        let bux = bdx / blen,
-          buy = bdy / blen;
-        ctx.strokeStyle = silverArmor;
-        ctx.lineWidth = 9;
-        ctx.beginPath();
-        ctx.moveTo(backHandX - bux * 15, backHandY - buy * 15);
-        ctx.lineTo(backHandX - bux * 5, backHandY - buy * 5);
-        ctx.stroke();
-      }
-      ctx.fillStyle = dhotiColor;
-      ctx.beginPath();
-      ctx.moveTo(Px - 10, Py - 10);
-      ctx.lineTo(Px - 25, Py + 35);
-      ctx.lineTo(Px - 5, Py + 35);
-      ctx.lineTo(Px + 5, Py - 10);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(Px + 5, Py - 10);
-      ctx.lineTo(Px + 15, Py + 35);
-      ctx.lineTo(Px + 35, Py + 35);
-      ctx.lineTo(Px + 15, Py - 10);
-      ctx.fill();
-      ctx.fillStyle = silverArmor;
-      ctx.fillRect(Px - 12, Py - 15, 26, 8);
-      ctx.fillStyle = skinColor;
-      ctx.fillRect(Px - 12, Py - 55, 24, 40);
-      ctx.fillStyle = silverArmor;
-      ctx.beginPath();
-      ctx.moveTo(Px - 14, Py - 55);
-      ctx.lineTo(Px + 14, Py - 55);
-      ctx.lineTo(Px + 10, Py - 25);
-      ctx.lineTo(Px - 10, Py - 25);
-      ctx.fill();
-      ctx.fillStyle = "#DC2626";
-      ctx.beginPath();
-      ctx.arc(Px, Py - 40, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = clothColor;
-      ctx.beginPath();
-      ctx.moveTo(Px - 10, Py - 45);
-      ctx.quadraticCurveTo(
-        Px - 40 - Math.sin(timeElapsed * 4) * 10,
-        Py - 20,
-        Px - 50,
-        Py + 10,
+      drawArcher(
+        ctx,
+        t,
+        timeElapsed,
+        backHandX,
+        backHandY,
+        backElbowX,
+        backElbowY,
+        handX,
+        handY,
+        elbowX,
+        elbowY,
       );
-      ctx.lineTo(Px - 40, Py + 15);
-      ctx.quadraticCurveTo(
-        Px - 30 - Math.sin(timeElapsed * 4) * 10,
-        Py - 10,
-        Px,
-        Py - 35,
-      );
-      ctx.fill();
-      ctx.fillStyle = skinColor;
-      ctx.beginPath();
-      ctx.arc(Px, Py - 65, 11, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(Px, Py - 76);
-      ctx.lineTo(Px + 14, Py - 65);
-      ctx.lineTo(Px + 10, Py - 55);
-      ctx.lineTo(Px - 5, Py - 55);
-      ctx.fill();
-      ctx.fillStyle = "#111";
-      ctx.beginPath();
-      ctx.moveTo(Px + 3, Py - 68);
-      ctx.lineTo(Px + 8, Py - 66);
-      ctx.lineTo(Px + 3, Py - 65);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(Px - 4, Py - 65, 12, Math.PI * 0.5, Math.PI * 1.6);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(Px - 14, Py - 60, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = silverArmor;
-      ctx.beginPath();
-      ctx.moveTo(Px - 12, Py - 73);
-      ctx.lineTo(Px + 10, Py - 73);
-      ctx.lineTo(Px + 15, Py - 100);
-      ctx.lineTo(Px, Py - 90);
-      ctx.lineTo(Px - 15, Py - 100);
-      ctx.fill();
-      ctx.fillStyle = "#DC2626";
-      ctx.beginPath();
-      ctx.arc(Px, Py - 85, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = skinColor;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(Px, Py - 45);
-      ctx.lineTo(elbowX, elbowY);
-      ctx.lineTo(handX, handY);
-      ctx.stroke();
-      let fdx = handX - elbowX,
-        fdy = handY - elbowY,
-        flen = Math.hypot(fdx, fdy);
-      if (flen > 0) {
-        let fux = fdx / flen,
-          fuy = fdy / flen;
-        ctx.strokeStyle = silverArmor;
-        ctx.lineWidth = 9;
-        ctx.beginPath();
-        ctx.moveTo(handX - fux * 15, handY - fuy * 15);
-        ctx.lineTo(handX - fux * 5, handY - fuy * 5);
-        ctx.stroke();
-      }
-      ctx.restore();
 
+      // Bow & String
       ctx.save();
       ctx.translate(handX, handY);
       ctx.rotate(currentBowAngle);
@@ -700,6 +506,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.shadowBlur = 10;
       ctx.stroke();
       ctx.shadowBlur = 0;
+
       ctx.beginPath();
       ctx.moveTo(Math.cos(-Math.PI / 2.2) * 55, Math.sin(-Math.PI / 2.2) * 55);
 
@@ -723,20 +530,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.stroke();
       ctx.restore();
 
-      const drawArrow = () => {
-        ctx.beginPath();
-        ctx.moveTo(-40, 0);
-        ctx.lineTo(20, 0);
-        ctx.strokeStyle = t.targetStand[0];
-        ctx.lineWidth = 3.5;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(25, 0);
-        ctx.lineTo(5, -7);
-        ctx.lineTo(5, 7);
-        ctx.fillStyle = t.sunGlow;
-        ctx.fill();
-      };
+      const isHotStreak = streakRef.current >= 3;
 
       if (isArrowFlying) {
         arrowTrail.push({ x: arrowX, y: arrowY, alpha: 1.0 });
@@ -744,21 +538,28 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         arrowX += velocityX * dt;
         arrowY += velocityY * dt;
         velocityX += currentWind * dt;
-        velocityY += gravity * dt;
+        velocityY += GRAVITY * dt;
         arrowAngle = Math.atan2(velocityY, velocityX);
-        const dist = Math.hypot(arrowX - Tx, arrowY - Ty);
+        const dist = Math.hypot(arrowX - currentTx, arrowY - Ty);
         if (arrowX > Px + 100)
           minDistToBullseye = Math.min(minDistToBullseye, dist);
 
-        if (dist <= targetRadius && arrowX >= Tx - 15 && arrowX <= Tx + 15) {
+        if (
+          dist <= targetRadius &&
+          arrowX >= currentTx - 15 &&
+          arrowX <= currentTx + 15
+        ) {
           isArrowFlying = false;
-          stuckOffset = { x: arrowX - Tx, y: arrowY - Ty };
+          stuckOffset = { x: arrowX - currentTx, y: arrowY - Ty };
           targetShake = 1.0;
           streakRef.current += 1;
-          const streakBonus = 1 + Math.min(streakRef.current - 1, 10) * 0.1;
+          consecutiveMissesRef.current = 0;
+
+          const streakBonus = 1 + Math.min(streakRef.current - 1, 10) * 0.15;
           const isBullseye = dist <= bullseyeRadius;
-          const gained = Math.round((isBullseye ? 100 : 20) * streakBonus);
+          const gained = Math.round((isBullseye ? 100 : 25) * streakBonus);
           scoreRef.current += gained;
+
           cb.current.onHit(scoreRef.current, streakRef.current, isBullseye);
           spawnParticles(
             arrowX,
@@ -775,20 +576,26 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           screenShakeMag = isBullseye ? 16 : 8;
           isBullseye ? cb.current.sfx.bullseye() : cb.current.sfx.hit();
           cb.current.vibrate(isBullseye ? [30, 30, 60] : 40);
-          if (streakRef.current > 1)
+
+          if (streakRef.current > 1) {
             spawnFloatingText(
               arrowX,
               arrowY - 55,
               `Streak x${streakRef.current}!`,
               t.sunGlow,
             );
-          if (!isBullseye && dist <= bullseyeRadius * 2.4)
-            spawnFloatingText(arrowX, arrowY - 50, "So close!", t.sunGlow);
-        } else if (arrowY > HEIGHT || arrowX > WIDTH || arrowY < -200) {
+          }
+        } else if (
+          arrowY > GAME_CONFIG.HEIGHT ||
+          arrowX > GAME_CONFIG.WIDTH ||
+          arrowY < -200
+        ) {
           isArrowFlying = false;
+          consecutiveMissesRef.current += 1;
           const wasClose = minDistToBullseye < 100;
           cb.current.onMiss(wasClose);
           wasClose ? cb.current.sfx.close() : cb.current.sfx.miss();
+
           if (streakRef.current > 0) {
             spawnFloatingText(Px, Py - 90, "Streak broken", "#F87171");
             cb.current.sfx.streakBreak();
@@ -802,29 +609,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (isArrowFlying) {
         ctx.translate(arrowX, arrowY);
         ctx.rotate(arrowAngle);
-        drawArrow();
+        drawArrow(ctx, t, isHotStreak);
       } else if (isDragging) {
         ctx.translate(
           backHandX + Math.cos(currentBowAngle) * 40,
           backHandY + Math.sin(currentBowAngle) * 40,
         );
         ctx.rotate(currentBowAngle);
-        drawArrow();
+        drawArrow(ctx, t, isHotStreak);
       }
       ctx.restore();
 
       if (!isArrowFlying && stuckOffset.x !== 0) {
         ctx.save();
-        ctx.translate(Tx + stuckOffset.x + shakeX, Ty + stuckOffset.y);
+        ctx.translate(currentTx + stuckOffset.x + shakeX, Ty + stuckOffset.y);
         ctx.rotate(arrowAngle);
-        drawArrow();
+        drawArrow(ctx, t, isHotStreak);
         ctx.restore();
       }
 
       particles.forEach((p, index) => {
         p.x += p.vx * dt;
         p.y += p.vy * dt;
-        p.vy += gravity * 0.4 * dt;
+        p.vy += GRAVITY * 0.4 * dt;
         p.life -= dt * 1.5;
         if (p.life <= 0) particles.splice(index, 1);
         else {
@@ -836,6 +643,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.globalAlpha = 1.0;
         }
       });
+
       floatingTexts.forEach((ft, index) => {
         ft.y -= 40 * dt;
         ft.life -= dt * 0.9;
@@ -851,7 +659,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       });
 
-      ctx.restore();
+      ctx.restore(); // Restore shake
+      ctx.restore(); // Restore scale/offset layout
+
       animationId = requestAnimationFrame(loop);
     };
 
@@ -861,15 +671,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       cancelAnimationFrame(animationId);
       canvas.removeEventListener("mousedown", startDrag);
       canvas.removeEventListener("mousemove", moveDrag);
-      window.addEventListener("mouseup", endDrag);
+      window.removeEventListener("mouseup", endDrag);
       canvas.removeEventListener("touchstart", startDrag);
       canvas.removeEventListener("touchmove", moveDrag);
-      window.addEventListener("touchend", endDrag);
+      window.removeEventListener("touchend", endDrag);
     };
   }, [t]);
 
   return (
-    <div className="absolute inset-0 w-full h-full bg-black">
+    <div className="absolute inset-0 w-full h-full bg-black overflow-hidden">
       <canvas
         ref={canvasRef}
         className="block w-full h-full touch-none cursor-crosshair"

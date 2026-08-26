@@ -41,98 +41,124 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
   return (
     <div
-      className={`shrink-0 flex flex-col sm:flex-row items-center justify-between rounded-2xl px-6 py-4 shadow-md border transition-colors duration-500 ${headerClass}`}
+      className={`shrink-0 flex flex-col lg:flex-row items-stretch lg:items-center justify-between rounded-xl lg:rounded-2xl px-3 py-2.5 sm:px-5 sm:py-3.5 shadow-md border transition-colors duration-500 gap-2.5 lg:gap-4 ${headerClass}`}
     >
-      <div className="flex items-center gap-4">
-        <div>
-          <h1
-            className={`text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r ${textTitleClass}`}
+      {/* Top Section: Title & Controls */}
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <h1
+              className={`text-lg sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r ${textTitleClass} leading-none`}
+            >
+              Kurukshetra
+            </h1>
+            <span
+              className={`text-[9px] sm:text-xs font-semibold whitespace-nowrap ${
+                isDarkMode ? "text-amber-400/80" : "text-orange-700/80"
+              }`}
+            >
+              🔥 {dayStreak}d · Best: {dailyBest}
+            </span>
+          </div>
+          <p
+            className={`text-[10px] sm:text-xs mt-0.5 font-medium truncate ${textSubClass}`}
           >
-            Kurukshetra
-          </h1>
-          <p className={`text-xs sm:text-sm mt-1 font-medium ${textSubClass}`}>
             {status}
           </p>
-          <p
-            className={`text-[10px] mt-0.5 font-semibold ${isDarkMode ? "text-amber-400/80" : "text-orange-700/80"}`}
+        </div>
+
+        {/* Quick Action Buttons */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={onNewRun}
+            className="px-2.5 py-1.5 rounded-full text-[9px] sm:text-xs font-bold uppercase bg-black/10 hover:bg-black/20 active:scale-95 transition-all text-current"
+            title="Start a fresh run"
           >
-            🔥 {dayStreak}-day streak · Today&apos;s best: {dailyBest}
-          </p>
+            New Run
+          </button>
+
+          <button
+            onClick={onToggleMute}
+            className="p-1.5 rounded-full bg-black/10 hover:bg-black/20 active:scale-95 transition-all text-xs"
+            title="Toggle Sound"
+          >
+            {isMuted ? "🔇" : "🔊"}
+          </button>
+
+          <button
+            onClick={onToggleTheme}
+            className="p-1.5 rounded-full bg-black/10 hover:bg-black/20 active:scale-95 transition-all text-xs"
+            title="Toggle Day/Night"
+          >
+            {isDarkMode ? "☀️" : "🌙"}
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mt-3 sm:mt-0">
-        <button
-          onClick={onNewRun}
-          className="px-3 py-2 rounded-full text-[10px] sm:text-xs font-bold uppercase bg-black/10 hover:bg-black/20 transition-colors"
-          title="Start a fresh run (keeps your best scores)"
-        >
-          New Run
-        </button>
+      {/* Stats Counter Section: Responsive Grid on Mobile, Row on Desktop */}
+      <div className="grid grid-cols-4 gap-1 sm:gap-4 text-center pt-2 lg:pt-0 border-t lg:border-t-0 lg:border-l border-black/10 lg:pl-4 shrink-0">
+        <div className="bg-black/5 lg:bg-transparent rounded-lg py-1 px-1.5 sm:p-0">
+          <p
+            className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider ${
+              isDarkMode ? "text-purple-400" : "text-orange-600"
+            }`}
+          >
+            Arrows
+          </p>
+          <p className={`text-base sm:text-xl font-black ${statBoxClass}`}>
+            {attempts}
+          </p>
+        </div>
 
-        <button
-          onClick={onToggleMute}
-          className="p-2 rounded-full bg-black/10 hover:bg-black/20 transition-colors"
-          title="Toggle Sound"
-        >
-          {isMuted ? "🔇" : "🔊"}
-        </button>
+        <div className="bg-black/5 lg:bg-transparent rounded-lg py-1 px-1.5 sm:p-0">
+          <p
+            className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider ${
+              isDarkMode ? "text-rose-400" : "text-rose-600"
+            }`}
+          >
+            Streak
+          </p>
+          <p
+            className={`text-base sm:text-xl font-black ${
+              isDarkMode ? "text-rose-300" : "text-rose-600"
+            }`}
+          >
+            {streak}
+          </p>
+        </div>
 
-        <button
-          onClick={onToggleTheme}
-          className="p-2 rounded-full bg-black/10 hover:bg-black/20 transition-colors"
-          title="Toggle Day/Night"
-        >
-          {isDarkMode ? "☀️" : "🌙"}
-        </button>
+        <div className="bg-black/5 lg:bg-transparent rounded-lg py-1 px-1.5 sm:p-0">
+          <p
+            className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider ${
+              isDarkMode ? "text-amber-400" : "text-amber-600"
+            }`}
+          >
+            Dharma
+          </p>
+          <p
+            className={`text-base sm:text-xl font-black ${
+              isDarkMode ? "text-amber-300" : "text-orange-600"
+            }`}
+          >
+            {score}
+          </p>
+        </div>
 
-        <div className="flex gap-4 sm:gap-6 text-center border-l border-black/10 pl-4">
-          <div>
-            <p
-              className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-purple-400" : "text-orange-500"}`}
-            >
-              Arrows
-            </p>
-            <p className={`text-xl sm:text-2xl font-bold ${statBoxClass}`}>
-              {attempts}
-            </p>
-          </div>
-          <div>
-            <p
-              className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-rose-400" : "text-rose-600"}`}
-            >
-              Streak
-            </p>
-            <p
-              className={`text-xl sm:text-2xl font-bold ${isDarkMode ? "text-rose-300" : "text-rose-600"}`}
-            >
-              {streak}
-            </p>
-          </div>
-          <div>
-            <p
-              className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-amber-500" : "text-amber-600"}`}
-            >
-              Dharma
-            </p>
-            <p
-              className={`text-xl sm:text-2xl font-bold ${isDarkMode ? "text-amber-400" : "text-orange-600"}`}
-            >
-              {score}
-            </p>
-          </div>
-          <div>
-            <p
-              className={`text-[10px] uppercase font-bold ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}
-            >
-              Best
-            </p>
-            <p
-              className={`text-xl sm:text-2xl font-bold ${isDarkMode ? "text-emerald-300" : "text-emerald-700"}`}
-            >
-              {bestScore}
-            </p>
-          </div>
+        <div className="bg-black/5 lg:bg-transparent rounded-lg py-1 px-1.5 sm:p-0">
+          <p
+            className={`text-[9px] sm:text-[10px] uppercase font-bold tracking-wider ${
+              isDarkMode ? "text-emerald-400" : "text-emerald-600"
+            }`}
+          >
+            Best
+          </p>
+          <p
+            className={`text-base sm:text-xl font-black ${
+              isDarkMode ? "text-emerald-300" : "text-emerald-700"
+            }`}
+          >
+            {bestScore}
+          </p>
         </div>
       </div>
     </div>
