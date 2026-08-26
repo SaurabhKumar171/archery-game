@@ -31,7 +31,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const attemptsRef = useRef(initialAttempts);
   const streakRef = useRef(initialStreak);
 
-  // Layout engine now uses a wider 1000x600 logical canvas
   const layout = useRef({
     offsetX: 0,
     offsetY: 0,
@@ -61,7 +60,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       canvas.width = w * dpr;
       canvas.height = h * dpr;
 
-      // Scale to fit the wider 1000x600 arena perfectly
       const scale = Math.min(w / 1000, h / 600);
       const offsetX = (w - 1000 * scale) / 2;
       const offsetY = (h - 600 * scale) / 2;
@@ -72,13 +70,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     window.addEventListener("resize", handleResize);
     handleResize();
 
-    // Logical Game Coordinates (Wider battlefield)
     const WIDTH = 1000,
       HEIGHT = 600;
     const Px = 100,
       Py = 470,
       Tx = 900,
-      BASE_TY = 300; // Px moved left, Tx moved right!
+      BASE_TY = 300;
     const targetRadius = 60,
       BASE_BULLSEYE_RADIUS = 12;
     const gravity = 1200,
@@ -94,6 +91,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       backHandY = Py + 15;
     let backElbowX = Px + 5,
       backElbowY = Py - 15;
+
+    // Drag origin anchor for screen-wide touch/drag
+    let dragStartX = Px,
+      dragStartY = Py;
 
     let isDragging = false,
       currentX = Px,
@@ -121,6 +122,48 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       screenShakeMag = 0,
       currentWind = 0;
     let minDistToBullseye = Infinity;
+
+    // Background Battlefield elements
+    const battleElements: any[] = [];
+    for (let i = 0; i < 20; i++) {
+      battleElements.push({
+        x: Math.random() * 4000 - 1500,
+        y: BASE_TY + 20 - Math.random() * 50,
+        type: Math.random() > 0.75 ? "chariot" : "fighterGroup",
+        phase: Math.random() * 100,
+        scale: Math.random() * 0.4 + 0.4,
+        speed: 1.8 + Math.random() * 0.5,
+      });
+    }
+
+    const groundDebris: any[] = [];
+    for (let i = 0; i < 40; i++) {
+      groundDebris.push({
+        x: Math.random() * 5000 - 1500,
+        y: Math.random() * 150 + 20,
+        type:
+          Math.random() > 0.6
+            ? "wheel"
+            : Math.random() > 0.5
+              ? "spear"
+              : "arrow",
+        angle: Math.random() * Math.PI * 2,
+        scale: Math.random() * 0.5 + 0.5,
+      });
+    }
+
+    const fireSmoke: any[] = [];
+    for (let i = 0; i < 35; i++) {
+      fireSmoke.push({
+        x: Math.random() * 4000 - 1500,
+        y: BASE_TY + 50 - Math.random() * 100,
+        size: Math.random() * 50 + 20,
+        vx: (Math.random() - 0.5) * 15,
+        vy: -Math.random() * 20 - 10,
+        life: Math.random() * 100,
+        parallax: 1.2 + Math.random(),
+      });
+    }
 
     const getDifficultyLevel = () => scoreRef.current / 100;
     const getTargetAmplitude = (level: number) =>
@@ -211,42 +254,42 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       let clientX = e instanceof TouchEvent ? e.touches[0].clientX : e.clientX;
       let clientY = e instanceof TouchEvent ? e.touches[0].clientY : e.clientY;
       const { offsetX, offsetY, scale } = layout.current;
-
-      return {
-        x: (clientX - offsetX) / scale,
-        y: (clientY - offsetY) / scale,
-      };
+      return { x: (clientX - offsetX) / scale, y: (clientY - offsetY) / scale };
     };
 
+    // Start drag from ANYWHERE on the screen
     const startDrag = (e: MouseEvent | TouchEvent) => {
       if (isArrowFlying) return;
       const { x, y } = getMousePos(e);
-      if (Math.hypot(x - currentHandX, y - currentHandY) < 140) {
-        isDragging = true;
-        currentX = x;
-        currentY = y;
-        arrowTrail = [];
-        minDistToBullseye = Infinity;
-        currentWind =
-          (Math.random() - 0.5) * 2 * getWindStrength(getDifficultyLevel());
-        cb.current.sfx.draw();
-        cb.current.onStatusChange("Aiming... focus your mind.");
-      }
+      isDragging = true;
+      dragStartX = x;
+      dragStartY = y;
+      currentX = Px;
+      currentY = Py;
+      arrowTrail = [];
+      minDistToBullseye = Infinity;
+      currentWind =
+        (Math.random() - 0.5) * 2 * getWindStrength(getDifficultyLevel());
+      cb.current.sfx.draw();
+      cb.current.onStatusChange("Aiming... focus your mind.");
     };
 
+    // Calculate relative movement from touch start point
     const moveDrag = (e: MouseEvent | TouchEvent) => {
       if (!isDragging) return;
       if (e.cancelable) e.preventDefault();
       const { x, y } = getMousePos(e);
-      currentX = x;
-      currentY = y;
+      const deltaX = x - dragStartX;
+      const deltaY = y - dragStartY;
+      currentX = Px + deltaX;
+      currentY = Py + deltaY;
     };
 
     const endDrag = () => {
       if (!isDragging) return;
       isDragging = false;
-      const pullDx = currentX - currentHandX,
-        pullDy = currentY - currentHandY;
+      const pullDx = currentX - Px;
+      const pullDy = currentY - Py;
       const dragDist = Math.hypot(pullDx, pullDy);
 
       if (dragDist < 20) {
@@ -306,6 +349,60 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       floatingTexts.push({ x, y, text, life: 1.4, color });
     };
 
+    const drawFighter = (
+      context: CanvasRenderingContext2D,
+      isAttacking: boolean,
+      phase: number,
+      color: string,
+    ) => {
+      context.fillStyle = color;
+      context.strokeStyle = color;
+      context.lineWidth = 4;
+      context.lineCap = "round";
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.lineTo(0, -25);
+      context.stroke();
+      context.beginPath();
+      context.arc(0, -32, 6, 0, Math.PI * 2);
+      context.fill();
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.lineTo(-8, 20);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.lineTo(12, 20);
+      context.stroke();
+
+      const armSwing = Math.sin(phase) * 12;
+      if (isAttacking) {
+        context.beginPath();
+        context.moveTo(0, -20);
+        context.lineTo(12, -25 + armSwing);
+        context.stroke();
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(12, -25 + armSwing);
+        context.lineTo(25, -45 + armSwing * 2);
+        context.stroke();
+        context.lineWidth = 4;
+        context.beginPath();
+        context.moveTo(0, -20);
+        context.lineTo(-12, -15);
+        context.stroke();
+      } else {
+        context.beginPath();
+        context.moveTo(0, -20);
+        context.lineTo(12, -15 + armSwing);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(0, -20);
+        context.lineTo(-12, -15 - armSwing);
+        context.stroke();
+      }
+    };
+
     const loop = (time: number) => {
       let dt = (time - lastTime) / 1000;
       lastTime = time;
@@ -319,11 +416,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         displayAngle = 0,
         dragDist = 0;
       if (isDragging) {
-        dragDist = Math.hypot(currentX - currentHandX, currentY - currentHandY);
-        displayAngle = Math.atan2(
-          -(currentY - currentHandY),
-          -(currentX - currentHandX),
-        );
+        const pullDx = currentX - Px;
+        const pullDy = currentY - Py;
+        dragDist = Math.hypot(pullDx, pullDy);
+        displayAngle = Math.atan2(-pullDy, -pullDx);
         targetBowRaise = 1.0;
         targetBowAngle = displayAngle;
         pullDist = Math.min(dragDist, 100);
@@ -365,7 +461,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       backElbowX += (targetBackElbowX - backElbowX) * dt * 15;
       backElbowY += (targetBackElbowY - backElbowY) * dt * 15;
 
-      // 2. RENDERING (Responsive Layering)
+      // 2. RENDERING
       const { offsetX, offsetY, scale, dpr, w, h } = layout.current;
 
       ctx.resetTransform();
@@ -439,6 +535,73 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       });
 
+      // Background Battle
+      const silhouetteColor = t.targetStand[0];
+      fireSmoke.forEach((s) => {
+        s.x -= isArrowFlying ? velocityX * dt * 0.015 * s.parallax : 0;
+        s.x += (currentWind * 6 + s.vx) * dt;
+        s.y += s.vy * dt;
+        s.life += dt;
+        if (s.y < 0 || s.x > 3000 || s.x < -1500) {
+          s.y = BASE_TY + 50 + Math.random() * 100;
+          s.x = Math.random() * 4000 - 1500;
+        }
+        if (s.y > BASE_TY - 20) {
+          ctx.fillStyle = `rgba(234, 88, 12, ${Math.max(0, 1 - (BASE_TY + 50 - s.y) / 50)})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const smokeOpacity = Math.max(0, Math.min(0.5, s.y / HEIGHT));
+        ctx.fillStyle =
+          t.sun === "#FFFFFF"
+            ? `rgba(60, 40, 30, ${smokeOpacity})`
+            : `rgba(15, 8, 25, ${smokeOpacity})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size * (1 + s.life * 0.05), 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      battleElements.forEach((b) => {
+        b.x -= isArrowFlying ? velocityX * dt * 0.015 * b.speed : 0;
+        b.phase += dt * 8;
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.scale(b.scale, b.scale);
+        if (b.type === "chariot") {
+          ctx.fillStyle = silhouetteColor;
+          ctx.strokeStyle = silhouetteColor;
+          ctx.lineWidth = 4;
+          ctx.fillRect(-30, -20, 50, 20);
+          ctx.beginPath();
+          ctx.arc(0, 0, 18, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-18, 0);
+          ctx.lineTo(18, 0);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, -18);
+          ctx.lineTo(0, 18);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(20, -10);
+          ctx.lineTo(60, -5);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-10, -20);
+          ctx.lineTo(-40, -60);
+          ctx.stroke();
+        } else {
+          ctx.translate(-20, 0);
+          drawFighter(ctx, true, b.phase, silhouetteColor);
+          ctx.translate(40, 0);
+          ctx.scale(-1, 1);
+          drawFighter(ctx, false, b.phase + 1, silhouetteColor);
+        }
+        ctx.restore();
+      });
+
       const groundGrad = ctx.createLinearGradient(
         0,
         HEIGHT - 100,
@@ -449,6 +612,60 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       groundGrad.addColorStop(1, t.ground[1]);
       ctx.fillStyle = groundGrad;
       ctx.fillRect(-2000, HEIGHT - 100, 4800, 3000);
+
+      ctx.strokeStyle = silhouetteColor;
+      ctx.fillStyle = silhouetteColor;
+      groundDebris.forEach((d) => {
+        d.x -= isArrowFlying ? velocityX * dt * 0.015 * 2.8 : 0;
+        ctx.save();
+        ctx.translate(d.x, HEIGHT - 100 + d.y);
+        ctx.rotate(d.angle);
+        ctx.scale(d.scale, d.scale);
+        ctx.lineWidth = 4;
+        if (d.type === "wheel") {
+          ctx.beginPath();
+          ctx.arc(0, 0, 15, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-15, 0);
+          ctx.lineTo(15, 0);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, -15);
+          ctx.lineTo(0, 15);
+          ctx.stroke();
+        } else if (d.type === "spear") {
+          ctx.beginPath();
+          ctx.moveTo(-25, 0);
+          ctx.lineTo(25, 0);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(25, -4);
+          ctx.lineTo(35, 0);
+          ctx.lineTo(25, 4);
+          ctx.fill();
+        } else {
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-15, 0);
+          ctx.lineTo(15, 0);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(15, -3);
+          ctx.lineTo(22, 0);
+          ctx.lineTo(15, 3);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(-15, 0);
+          ctx.lineTo(-20, -4);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(-15, 0);
+          ctx.lineTo(-20, 4);
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
 
       if (targetShake > 0) targetShake = Math.max(0, targetShake - dt * 4);
       const shakeX = (Math.random() - 0.5) * targetShake * 15;
@@ -846,10 +1063,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       cancelAnimationFrame(animationId);
       canvas.removeEventListener("mousedown", startDrag);
       canvas.removeEventListener("mousemove", moveDrag);
-      window.addEventListener("mouseup", endDrag);
+      window.removeEventListener("mouseup", endDrag);
       canvas.removeEventListener("touchstart", startDrag);
       canvas.removeEventListener("touchmove", moveDrag);
-      window.addEventListener("touchend", endDrag);
+      window.removeEventListener("touchend", endDrag);
     };
   }, [t]);
 
