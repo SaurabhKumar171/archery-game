@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏹 Kurukshetra: Archery
 
-## Getting Started
+A meditative, offline-first archery game built with Next.js, Tailwind CSS, and the pure HTML5 Canvas API.
 
-First, run the development server:
+Inspired by the epic *Mahabharata*, players take on the role of Arjuna, firing celestial arrows (Divyastras) across a full-screen, dynamic battlefield.
+
+---
+
+## ✨ Features
+
+- **📱 Progressive Web App (PWA):** Fully installable on iOS, Android, and Desktop. Works **100% offline** with zero loading times after the first visit.
+- **🌗 Day & Night Themes:** Toggle between "Vedic Dawn" (Light Mode) and "Astral Twilight" (Dark Mode).
+- **🏹 Dynamic Inverse Kinematics (IK):** Custom-built character movement engine where Arjuna's arms, bow tension, and posture dynamically adjust as you draw and fire.
+- **🔥 Dynamic Battlefield Background:** Features procedural smoke, glowing fires, distant clashing warriors, wind physics, and scattered ground debris.
+- **🎯 Dynamic Mechanics:** Features realistic wind resistance, gravity arcs, and progressive target difficulty.
+- **🔊 Game Juice:** Full feedback loop featuring screen shake, particle trails, Web Audio API sound effects, and mobile haptic vibrations.
+- **🏆 Local Persistence:** Automatically tracks and saves your high score, daily best, total attempts, and active day streaks via `localStorage`.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework:** [Next.js](https://nextjs.org/) (App Router & TypeScript)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+- **Graphics & Engine:** Pure HTML5 Canvas API (No external game engines used)
+- **PWA & Offline:** [@ducanh2912/next-pwa](https://github.com/DuCanhGH/next-pwa)
+- **Audio:** Web Audio API (Synthesized in real-time, zero audio assets required)
+
+---
+
+## 🎮 How to Play
+
+1. **Draw the Bow:** Touch/click near Arjuna and drag backward to aim and tension the Gandiva bow.
+2. **Account for Wind:** Look at the wind indicator at the top of the screen to adjust your arc.
+3. **Release to Strike:** Release your mouse or finger to launch the Divyastra.
+4. **Build Streaks:** Consecutive bullseyes grant massive score multipliers. A miss resets your streak!
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/your-username/kurukshetra-archery.git
+cd kurukshetra-archery
+npm install
+```
+
+### 2. Development Mode
+
+Run the local development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+(Note: PWA caching and Service Workers are disabled in development mode to avoid caching stale code).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 📦 Building & Testing Offline PWA
 
-## Learn More
+To test the offline Service Worker and PWA installation features, generate a production build:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run build
+npm run start
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Open http://localhost:3000 in Google Chrome or Safari.
+2. Click the Install button in the browser URL bar (or "Add to Home Screen" on mobile).
+3. Disconnect your internet connection, refresh the page, and play completely offline!
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 📄 License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

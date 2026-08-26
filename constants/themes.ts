@@ -1,0 +1,61 @@
+// =========================
+// Theme Configurations
+// =========================
+export const themes = {
+  dark: {
+    sky: ["#0B061A", "#251240", "#542153"],
+    sun: "#FDE047",
+    sunGlow: "#F59E0B",
+    ground: ["#190D2B", "#0A0512"],
+    warrior: "#09040D",
+    mountains: [
+      { c1: "#1A103C", c2: "#0D0722" },
+      { c1: "#25164D", c2: "#110A2B" },
+      { c1: "#3D2466", c2: "#1E113B" },
+    ],
+    flagPole: "#160B24",
+    flag1: "#C026D3",
+    flag2: "#9D174D",
+    targetStand: ["#1E1121", "#2D1B33"],
+    targetRings: {
+      outer: "#4C2B40",
+      mid: "#E2E8F0",
+      inner: "#4C2B40",
+      bullseye: "#FBBF24",
+    },
+    bowGrad: ["#FEF08A", "#D97706"],
+    bowGlow: "#F59E0B",
+    bowString: "rgba(254, 240, 138, 0.9)",
+    aimLine: "rgba(251, 191, 36, 0.4)",
+    windIndicator: "rgba(251, 191, 36, 0.8)",
+    particles: { win: "#FDE047", hit: "#F472B6" },
+  },
+  light: {
+    sky: ["#38BDF8", "#7DD3FC", "#FEF08A"],
+    sun: "#FFFFFF",
+    sunGlow: "#FDE047",
+    ground: ["#A16207", "#713F12"],
+    warrior: "#451A03",
+    mountains: [
+      { c1: "#94A3B8", c2: "#64748B" },
+      { c1: "#65A30D", c2: "#4D7C0F" },
+      { c1: "#84CC16", c2: "#4D7C0F" },
+    ],
+    flagPole: "#78350F",
+    flag1: "#E11D48",
+    flag2: "#EA580C",
+    targetStand: ["#78350F", "#451A03"],
+    targetRings: {
+      outer: "#FEF3C7",
+      mid: "#DC2626",
+      inner: "#FEF3C7",
+      bullseye: "#FBBF24",
+    },
+    bowGrad: ["#F59E0B", "#B45309"],
+    bowGlow: "#EA580C",
+    bowString: "rgba(255, 255, 255, 0.9)",
+    aimLine: "rgba(234, 88, 12, 0.6)",
+    windIndicator: "rgba(234, 88, 12, 0.8)",
+    particles: { win: "#FDE047", hit: "#EA580C" },
+  },
+};

@@ -1,0 +1,23 @@
+{
+  "name": "Kurukshetra: Archery",
+  "short_name": "Kurukshetra",
+  "description": "A meditative, offline-first archery experience.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#000000",
+  "theme_color": "#0B061A",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/high-shot.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
