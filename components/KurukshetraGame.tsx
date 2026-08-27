@@ -7,14 +7,16 @@ import { GameCanvas } from "./GameCanvas";
 
 const KurukshetraGame = () => {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false); // Defaulting to dark mode for the night theme
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
 
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [streak, setStreak] = useState(0);
-  const [status, setStatus] = useState("Draw the divine string...");
+  const [status, setStatus] = useState(
+    "Focus, Arjuna. Draw the divine string...",
+  );
 
   const [bestScore, setBestScore] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
@@ -120,7 +122,7 @@ const KurukshetraGame = () => {
     setScore(0);
     setAttempts(0);
     setStreak(0);
-    setStatus("Draw the divine string...");
+    setStatus("The battlefield awaits anew. Draw the string...");
     setSessionKey((prev) => prev + 1);
     localStorage.removeItem("kurukshetra_session");
   };
@@ -129,7 +131,11 @@ const KurukshetraGame = () => {
     (newScore: number, newStreak: number, isBullseye: boolean) => {
       setScore(newScore);
       setStreak(newStreak);
-      setStatus(isBullseye ? `DIVINE STRIKE!` : `Target struck!`);
+      setStatus(
+        isBullseye
+          ? '"I see only the eye of the bird."'
+          : "A true strike. Dharma grows.",
+      );
       persistSessionAndBests(newScore, newStreak);
     },
     [persistSessionAndBests],
@@ -137,19 +143,24 @@ const KurukshetraGame = () => {
 
   const handleMiss = useCallback((wasClose: boolean) => {
     setStreak(0);
+    setScore(0); // SUDDEN DEATH: Reset Dharma to 0
+
     setStatus(
       wasClose
-        ? "So close! The arrow missed its mark."
-        : "The arrow missed its mark.",
+        ? "The wind tests you. Focus wavers, Dharma resets."
+        : "Illusion clouds your vision. Dharma is lost.",
     );
   }, []);
 
   if (!isLoaded) return null;
 
   return (
-    <div className="relative w-full h-full transition-colors duration-500 overflow-hidden">
-      {/* Floating HUD overlay with z-10 so it sits on top of the canvas */}
-      <div className="absolute top-0 left-0 w-full z-10 pointer-events-none p-4 sm:p-6 lg:p-8">
+    <div className="relative w-full h-full transition-colors duration-500 overflow-hidden bg-black">
+      {/* Floating HUD overlay - Added safe-area padding for mobile notches/dynamic islands */}
+      <div
+        className="absolute top-0 left-0 w-full z-10 pointer-events-none px-2 sm:px-4 lg:px-6"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+      >
         <div className="pointer-events-auto max-w-6xl mx-auto">
           <GameHeader
             isDarkMode={isDarkMode}

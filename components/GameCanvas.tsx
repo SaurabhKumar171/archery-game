@@ -1,4 +1,6 @@
-import React, { useEffect, useRef } from "react";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
 import { useGameAudio } from "../hooks/useGameAudio";
 import {
   GAME_CONFIG,
@@ -9,13 +11,13 @@ import {
   getTargetRadius,
   getTargetY,
   getTargetXOffset,
-} from "../utils/gamePhysics";
+} from "@/utils/gamePhysics";
 import {
   drawBackground,
   drawTarget,
   drawArrow,
   drawArcher,
-} from "./renderHelpers";
+} from "@/utils/renderHelpers";
 
 interface GameCanvasProps {
   theme: any;
@@ -43,10 +45,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { sfx, vibrate } = useGameAudio(isMuted);
 
+  // Track if the user has made an attempt so we can hide the HTML overlay UI
+  const [hasPlayed, setHasPlayed] = useState(initialAttempts > 0);
+
   const scoreRef = useRef(initialScore);
   const attemptsRef = useRef(initialAttempts);
   const streakRef = useRef(initialStreak);
   const consecutiveMissesRef = useRef(0);
+
+  useEffect(() => {
+    scoreRef.current = initialScore;
+    streakRef.current = initialStreak;
+  }, [initialScore, initialStreak]);
 
   const layout = useRef({
     offsetX: 0,
@@ -115,6 +125,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       life: number;
       color: string;
     }[] = [];
+
+    // --- EPIC TEXT SYSTEM ---
+    let epicText = { text: "", life: 0, scale: 0, yOffset: 0 };
 
     let targetShake = 0,
       timeElapsed = 0,
@@ -237,7 +250,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
     const moveDrag = (e: MouseEvent | TouchEvent) => {
       if (!isDragging) return;
-      if (e.cancelable) e.preventDefault();
+      if (e.cancelable) e.preventDefault(); // Prevents mobile scrolling while dragging
       const { x, y } = getMousePos(e);
       currentX = x;
       currentY = y;
@@ -256,6 +269,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         return;
       }
 
+      // Hide the tutorial UI permanently for this session
+      setHasPlayed(true);
+
       arrowAngle = Math.atan2(-pullDy, -pullDx);
       const V0 = Math.min(dragDist, 250) * POWER_MULTIPLIER;
       velocityX = V0 * Math.cos(arrowAngle);
@@ -271,12 +287,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       cb.current.sfx.release();
     };
 
+    const cancelDrag = () => {
+      isDragging = false;
+    };
+
     canvas.addEventListener("mousedown", startDrag);
     canvas.addEventListener("mousemove", moveDrag);
     window.addEventListener("mouseup", endDrag);
+
+    // Touch Events with passive: false to allow preventDefault()
     canvas.addEventListener("touchstart", startDrag, { passive: false });
     canvas.addEventListener("touchmove", moveDrag, { passive: false });
     window.addEventListener("touchend", endDrag);
+    // Crucial for mobile: handles when a finger drags off the edge of the screen
+    window.addEventListener("touchcancel", cancelDrag);
 
     let lastTime = performance.now();
     let animationId: number;
@@ -372,18 +396,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       backElbowX += (targetBackElbowX - backElbowX) * dt * 15;
       backElbowY += (targetBackElbowY - backElbowY) * dt * 15;
 
-      const { offsetX, offsetY, scale, dpr } = layout.current;
+      const { offsetX, offsetY, scale, dpr, w, h } = layout.current;
 
       ctx.resetTransform();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.scale(dpr, dpr);
 
-      // 1. Transform World to Logical Space
       ctx.save();
       ctx.translate(offsetX, offsetY);
       ctx.scale(scale, scale);
 
-      // 2. Draw Transformed Background & Scene
       drawBackground(
         ctx,
         t,
@@ -414,10 +436,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       ctx.save();
       ctx.translate(shakeX, 0);
-      drawTarget(ctx, t, currentTx, Ty, Py + 35, targetRadius, bullseyeRadius);
+      drawTarget(
+        ctx,
+        t,
+        currentTx,
+        Ty,
+        Py + 35,
+        targetRadius,
+        bullseyeRadius,
+        timeElapsed,
+      );
       ctx.restore();
 
-      // Aim Line & Pity Trajectory Arc
       if (isDragging) {
         if (consecutiveMissesRef.current < 3) {
           ctx.beginPath();
@@ -482,7 +512,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         elbowY,
       );
 
-      // Bow & String
       ctx.save();
       ctx.translate(handX, handY);
       ctx.rotate(currentBowAngle);
@@ -546,8 +575,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         if (
           dist <= targetRadius &&
-          arrowX >= currentTx - 15 &&
-          arrowX <= currentTx + 15
+          arrowX >= currentTx - 25 &&
+          arrowX <= currentTx + 20
         ) {
           isArrowFlying = false;
           stuckOffset = { x: arrowX - currentTx, y: arrowY - Ty };
@@ -561,19 +590,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           scoreRef.current += gained;
 
           cb.current.onHit(scoreRef.current, streakRef.current, isBullseye);
-          spawnParticles(
-            arrowX,
-            arrowY,
-            isBullseye ? t.particles.win : t.particles.hit,
-            isBullseye ? 60 : 30,
-          );
+
+          if (isBullseye) {
+            epicText = {
+              text: "I SEE ONLY THE EYE!",
+              life: 2.5,
+              scale: 0.1,
+              yOffset: 0,
+            };
+            spawnParticles(arrowX, arrowY, t.particles.win, 80);
+          } else {
+            spawnParticles(arrowX, arrowY, t.particles.hit, 30);
+          }
+
           spawnFloatingText(
             arrowX,
             arrowY - 30,
             `+${gained}`,
             isBullseye ? t.particles.win : t.particles.hit,
           );
-          screenShakeMag = isBullseye ? 16 : 8;
+
+          screenShakeMag = isBullseye ? 22 : 8;
           isBullseye ? cb.current.sfx.bullseye() : cb.current.sfx.hit();
           cb.current.vibrate(isBullseye ? [30, 30, 60] : 40);
 
@@ -659,8 +696,96 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       });
 
+      // --- TUTORIAL OVERLAY FOR FIRST TIMERS ---
+      if (attemptsRef.current === 0 && !isDragging && !isArrowFlying) {
+        ctx.save();
+        const tutCycle = (timeElapsed * 0.6) % 1;
+        const startX = GAME_CONFIG.WIDTH / 2 + 50;
+        const startY = GAME_CONFIG.HEIGHT / 2;
+        const tutX = startX - tutCycle * 180;
+        const tutY = startY + tutCycle * 80;
+
+        let alpha = 1;
+        if (tutCycle < 0.2) alpha = tutCycle / 0.2;
+        else if (tutCycle > 0.8) alpha = (1 - tutCycle) / 0.2;
+
+        ctx.globalAlpha = alpha;
+
+        ctx.font = "bold 22px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        ctx.shadowBlur = 8;
+        ctx.fillText("Drag anywhere to aim", startX - 90, startY - 40);
+        ctx.shadowBlur = 0;
+
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(tutX, tutY);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 8]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(tutX, tutY, 20, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(tutX, tutY, 8, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.fill();
+
+        ctx.restore();
+      }
+
       ctx.restore(); // Restore shake
       ctx.restore(); // Restore scale/offset layout
+
+      // --- EPIC TEXT SYSTEM ---
+      if (epicText.life > 0) {
+        epicText.life -= dt;
+        epicText.scale += (1.0 - epicText.scale) * dt * 10;
+        epicText.yOffset -= 15 * dt;
+
+        ctx.save();
+        ctx.translate(w / 2, h / 3 + epicText.yOffset);
+        ctx.scale(epicText.scale, epicText.scale);
+
+        const alpha = Math.max(0, Math.min(1, epicText.life * 1.5));
+        ctx.globalAlpha = alpha;
+
+        const fontSize = Math.min(w * 0.08, 64);
+        ctx.font = `900 italic ${fontSize}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.shadowColor = t.sunGlow || "#F59E0B";
+        ctx.shadowBlur = 40;
+
+        const grad = ctx.createLinearGradient(
+          0,
+          -fontSize / 2,
+          0,
+          fontSize / 2,
+        );
+        grad.addColorStop(0, "#FEF08A");
+        grad.addColorStop(0.5, "#F59E0B");
+        grad.addColorStop(1, "#9A3412");
+
+        ctx.fillStyle = grad;
+        ctx.fillText(epicText.text, 0, 0);
+
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "#451A03";
+        ctx.strokeText(epicText.text, 0, 0);
+
+        ctx.restore();
+      }
 
       animationId = requestAnimationFrame(loop);
     };
@@ -675,17 +800,32 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       canvas.removeEventListener("touchstart", startDrag);
       canvas.removeEventListener("touchmove", moveDrag);
       window.removeEventListener("touchend", endDrag);
+      window.removeEventListener("touchcancel", cancelDrag);
     };
   }, [t]);
 
   return (
-    <div className="absolute inset-0 w-full h-full bg-black overflow-hidden">
+    // select-none and overscrollBehavior: "none" are CRITICAL for mobile HTML5 games
+    <div
+      className="absolute inset-0 w-full h-full bg-black overflow-hidden select-none"
+      style={{ overscrollBehavior: "none" }}
+    >
       <canvas
         ref={canvasRef}
         className="block w-full h-full touch-none cursor-crosshair"
         style={{ touchAction: "none" }}
       />
-      <div className="pointer-events-none absolute bottom-12 w-full flex justify-center">
+
+      {/* Hide this redundant HTML text layer smoothly once the user plays */}
+      <div
+        className={`pointer-events-none absolute w-full flex justify-center transition-opacity duration-700 ${
+          hasPlayed ? "opacity-0" : "opacity-100"
+        }`}
+        style={{
+          paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
+          bottom: 0,
+        }}
+      >
         <span className="rounded-full bg-black/60 px-6 py-2.5 text-xs sm:text-sm font-bold tracking-widest uppercase text-white/90 backdrop-blur-md shadow-2xl">
           Pull back to draw
         </span>

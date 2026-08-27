@@ -1,4 +1,4 @@
-import { GAME_CONFIG } from "../utils/gamePhysics";
+import { GAME_CONFIG } from "./gamePhysics";
 
 export const drawBackground = (
   ctx: CanvasRenderingContext2D,
@@ -11,25 +11,26 @@ export const drawBackground = (
 ) => {
   const { WIDTH, HEIGHT, Py } = GAME_CONFIG;
 
-  // Sky Gradient (Rendered in Logical Coordinates)
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+  // 1. Sky Gradient (Extended to cover ultra-tall screens)
+  const bgGrad = ctx.createLinearGradient(0, -1000, 0, HEIGHT + 500);
   bgGrad.addColorStop(0, t.sky[0]);
   bgGrad.addColorStop(0.5, t.sky[1]);
   bgGrad.addColorStop(1, t.sky[2]);
   ctx.fillStyle = bgGrad;
-  ctx.fillRect(-500, -500, WIDTH + 1000, HEIGHT + 1000);
+  // Fills a massive area to prevent letterbox clipping on ultra-wide / ultra-tall devices
+  ctx.fillRect(-2000, -2000, WIDTH + 4000, HEIGHT + 4000);
 
-  // Sun
+  // 2. Sun (Anchored relatively so it doesn't get lost on wide screens)
   ctx.save();
   ctx.shadowColor = t.sunGlow;
   ctx.shadowBlur = 120;
   ctx.fillStyle = t.sun;
   ctx.beginPath();
-  ctx.arc(WIDTH / 2 + 150, 160, 50, 0, Math.PI * 2);
+  ctx.arc(WIDTH * 0.75, 160, 50, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // Mountains & Flags
+  // 3. Mountains & Flags
   backgroundLayers.forEach((layer) => {
     layer.x -= isArrowFlying ? velocityX * dt * 0.015 * layer.speed : 0;
     const mGrad = ctx.createLinearGradient(
@@ -44,11 +45,12 @@ export const drawBackground = (
 
     if (layer.type === "mountain") {
       ctx.beginPath();
-      ctx.moveTo(layer.x - 500, layer.y + layer.height + 1000);
+      // Extended the mountain bases from 500 to 1500 to prevent ground-clipping
+      ctx.moveTo(layer.x - 1500, layer.y + layer.height + 2000);
       ctx.lineTo(layer.x, layer.y + layer.height);
       ctx.lineTo(layer.x + layer.width / 2, layer.y);
       ctx.lineTo(layer.x + layer.width, layer.y + layer.height);
-      ctx.lineTo(layer.x + layer.width + 500, layer.y + layer.height + 1000);
+      ctx.lineTo(layer.x + layer.width + 1500, layer.y + layer.height + 2000);
       ctx.fill();
     } else if (layer.type === "flag") {
       ctx.fillStyle = t.flagPole;
@@ -67,13 +69,13 @@ export const drawBackground = (
     }
   });
 
-  // Ground Surface
+  // 4. Ground Surface (Extended downward and outward for tall mobile screens)
   const groundY = Py + 35;
-  const groundGrad = ctx.createLinearGradient(0, groundY, 0, HEIGHT + 400);
+  const groundGrad = ctx.createLinearGradient(0, groundY, 0, HEIGHT + 1000);
   groundGrad.addColorStop(0, t.ground[0]);
   groundGrad.addColorStop(1, t.ground[1]);
   ctx.fillStyle = groundGrad;
-  ctx.fillRect(-2000, groundY, 5000, HEIGHT + 1000);
+  ctx.fillRect(-3000, groundY, WIDTH + 6000, HEIGHT + 2000);
 };
 
 export const drawTarget = (
@@ -84,34 +86,90 @@ export const drawTarget = (
   groundY: number,
   targetRadius: number,
   bullseyeRadius: number,
+  timeElapsed: number = 0,
 ) => {
   ctx.save();
-  ctx.fillStyle = t.targetStand[0];
-  ctx.fillRect(tx - 12, ty, 16, groundY - ty);
-  ctx.fillStyle = t.targetStand[1];
-  ctx.fillRect(tx - 16, ty, 10, groundY - ty);
+  const scale = targetRadius / 45;
+  ctx.translate(tx, ty);
+  ctx.scale(scale, scale);
 
-  const drawRing = (r: number, c1: string, c2: string) => {
-    const grad = ctx.createRadialGradient(
-      tx - r / 3,
-      ty - r / 3,
-      r / 4,
-      tx,
-      ty,
-      r,
-    );
-    grad.addColorStop(0, c1);
-    grad.addColorStop(1, c2);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(tx, ty, r, 0, Math.PI * 2);
-    ctx.fill();
-  };
+  // Organic hovering offset
+  const hoverY = Math.sin(timeElapsed * 4) * 3;
+  ctx.translate(0, hoverY);
 
-  drawRing(targetRadius, t.targetRings.outer, t.targetStand[1]);
-  drawRing(targetRadius * 0.7, t.targetRings.mid, t.targetRings.mid);
-  drawRing(targetRadius * 0.4, t.targetRings.inner, t.targetStand[1]);
-  drawRing(bullseyeRadius, t.targetRings.bullseye, t.sunGlow);
+  // Rapid flapping math
+  const flap = Math.sin(timeElapsed * 20);
+
+  // --- THE MYSTICAL BIRD ---
+
+  // Back Wing
+  ctx.save();
+  ctx.translate(2, -2);
+  ctx.rotate((Math.PI / 5) * flap);
+  ctx.fillStyle = "#065F46";
+  ctx.beginPath();
+  ctx.ellipse(12, -4, 18, 6, -Math.PI / 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Tail
+  ctx.save();
+  ctx.translate(15, 8);
+  ctx.rotate((-Math.PI / 25) * flap);
+  ctx.fillStyle = "#047857";
+  ctx.beginPath();
+  ctx.moveTo(0, -2);
+  ctx.lineTo(32, -12);
+  ctx.lineTo(26, 12);
+  ctx.fill();
+  ctx.restore();
+
+  // Body
+  ctx.fillStyle = "#10B981";
+  ctx.beginPath();
+  ctx.ellipse(10, 8, 20, 12, -Math.PI / 12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  ctx.beginPath();
+  ctx.arc(0, 0, 13, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Beak
+  ctx.fillStyle = "#F59E0B";
+  ctx.beginPath();
+  ctx.moveTo(-10, -4);
+  ctx.quadraticCurveTo(-25, -2, -26, 6);
+  ctx.quadraticCurveTo(-15, 6, -8, 4);
+  ctx.fill();
+
+  // Front Wing
+  ctx.save();
+  ctx.translate(4, 4);
+  ctx.rotate((Math.PI / 4) * flap);
+  ctx.fillStyle = "#34D399";
+  ctx.beginPath();
+  ctx.ellipse(14, 2, 22, 8, Math.PI / 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // The Eye
+  const adjustedBullseye = bullseyeRadius / scale;
+
+  ctx.shadowColor = t.sunGlow || "#F59E0B";
+  ctx.shadowBlur = 15;
+  ctx.fillStyle = "#EF4444";
+  ctx.beginPath();
+  ctx.arc(0, 0, adjustedBullseye, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Intense Eye highlight
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.beginPath();
+  ctx.arc(-2, -2, adjustedBullseye * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 };
 
@@ -157,7 +215,6 @@ export const drawArcher = (
 
   ctx.save();
 
-  // Quiver & Arrows on Back
   ctx.fillStyle = "#451A03";
   ctx.beginPath();
   ctx.moveTo(Px - 15, Py - 60);
@@ -184,7 +241,6 @@ export const drawArcher = (
   ctx.lineTo(Px - 5, Py - 78);
   ctx.stroke();
 
-  // Back Arm
   ctx.strokeStyle = skinColor;
   ctx.lineWidth = 8;
   ctx.lineCap = "round";
@@ -209,7 +265,6 @@ export const drawArcher = (
     ctx.stroke();
   }
 
-  // Lower Body / Dhoti
   ctx.fillStyle = dhotiColor;
   ctx.beginPath();
   ctx.moveTo(Px - 10, Py - 10);
@@ -224,7 +279,6 @@ export const drawArcher = (
   ctx.lineTo(Px + 15, Py - 10);
   ctx.fill();
 
-  // Torso & Armor
   ctx.fillStyle = silverArmor;
   ctx.fillRect(Px - 12, Py - 15, 26, 8);
   ctx.fillStyle = skinColor;
@@ -237,13 +291,11 @@ export const drawArcher = (
   ctx.lineTo(Px - 10, Py - 25);
   ctx.fill();
 
-  // Red Gem/Pendant
   ctx.fillStyle = "#DC2626";
   ctx.beginPath();
   ctx.arc(Px, Py - 40, 4, 0, Math.PI * 2);
   ctx.fill();
 
-  // Flowing Sash
   ctx.fillStyle = clothColor;
   ctx.beginPath();
   ctx.moveTo(Px - 10, Py - 45);
@@ -262,7 +314,6 @@ export const drawArcher = (
   );
   ctx.fill();
 
-  // Head & Hair
   ctx.fillStyle = skinColor;
   ctx.beginPath();
   ctx.arc(Px, Py - 65, 11, 0, Math.PI * 2);
@@ -287,7 +338,6 @@ export const drawArcher = (
   ctx.arc(Px - 14, Py - 60, 6, 0, Math.PI * 2);
   ctx.fill();
 
-  // Crown / Helmet
   ctx.fillStyle = silverArmor;
   ctx.beginPath();
   ctx.moveTo(Px - 12, Py - 73);
@@ -301,7 +351,6 @@ export const drawArcher = (
   ctx.arc(Px, Py - 85, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Front Arm
   ctx.strokeStyle = skinColor;
   ctx.lineWidth = 8;
   ctx.beginPath();
